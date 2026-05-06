@@ -1,6 +1,7 @@
 package identifier
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -17,7 +18,8 @@ type ProductMatch struct {
 
 // Identifier detects Red Hat products from pod specifications
 type Identifier struct {
-	patterns map[string]string
+	patterns       map[string]string
+	imageInspector *ImageInspector
 }
 
 // NewIdentifier creates a new product identifier with hardcoded patterns
@@ -25,16 +27,29 @@ func NewIdentifier() *Identifier {
 	return &Identifier{
 		patterns: map[string]string{
 			// JBoss EAP (Enterprise Application Platform)
-			"registry.redhat.io/jboss-eap-7":         "jboss-eap",
-			"registry.redhat.io/jboss-eap-8":         "jboss-eap",
-			"registry.redhat.io/jboss-eap/jboss-eap": "jboss-eap",
+			"jboss-eap-7": "EAP",
+			"jboss-eap-8": "EAP",
 		},
+		imageInspector: nil, // Will be set if running in OpenShift
 	}
 }
 
+// SetImageInspector sets the image inspector for OpenShift Image API access
+func (i *Identifier) SetImageInspector(inspector *ImageInspector) {
+	i.imageInspector = inspector
+}
+
 // IdentifyPod analyzes a pod and returns product information if it's a Red Hat product
-func (i *Identifier) IdentifyPod(pod *corev1.Pod) *ProductMatch {
-	// Check all containers in the pod
+func (i *Identifier) IdentifyPod(ctx context.Context, pod *corev1.Pod) *ProductMatch {
+	// First, check if this is an EAP Operator-managed pod
+	// The EAP Operator already adds rht.comp label, but we want to add our additional labels
+	if pod.Labels != nil {
+		if managedBy, exists := pod.Labels["app.kubernetes.io/managed-by"]; exists && managedBy == "eap-operator" {
+			return i.identifyOperatorManagedPod(pod)
+		}
+	}
+
+	// Second, try to identify by image name (direct deployments)
 	for _, container := range pod.Spec.Containers {
 		if match := i.identifyImage(container.Image); match != nil {
 			return match
@@ -48,7 +63,42 @@ func (i *Identifier) IdentifyPod(pod *corev1.Pod) *ProductMatch {
 		}
 	}
 
+	// Fallback: Try OpenShift Image API (for S2I-built applications)
+	// S2I-built apps have env vars in the image metadata
+	if i.imageInspector != nil {
+		if match := i.imageInspector.InspectPodImages(ctx, pod); match != nil {
+			return match
+		}
+	}
+
 	return nil
+}
+
+// identifyOperatorManagedPod handles pods managed by the EAP Operator
+// These pods already have rht.comp label, but we add version, image, and discovered timestamp
+func (i *Identifier) identifyOperatorManagedPod(pod *corev1.Pod) *ProductMatch {
+	// Get the product name from existing label (EAP Operator sets "EAP")
+	productName := pod.Labels["rht.comp"]
+	if productName == "" {
+		productName = "EAP" // Default if not set
+	}
+
+	// Extract version and image from the first container
+	var version, image string
+	if len(pod.Spec.Containers) > 0 {
+		image = pod.Spec.Containers[0].Image
+		version = extractVersion(image)
+	} else {
+		version = "unknown"
+		image = "unknown"
+	}
+
+	return &ProductMatch{
+		ProductName: productName,
+		Version:     version,
+		Image:       image,
+		Discovered:  pod.CreationTimestamp.Time,
+	}
 }
 
 // identifyImage checks if an image matches any Red Hat product pattern
@@ -99,17 +149,43 @@ func extractVersion(image string) string {
 // ShouldLabel determines if a pod should be labeled
 // Returns true if any of the required labels are missing
 // Does not check label values to respect user-provided labels
+// For operator-managed pods, we only add our additional labels (version, image, discovered)
 func (i *Identifier) ShouldLabel(pod *corev1.Pod, match *ProductMatch) bool {
 	if pod.Labels == nil {
 		return true
 	}
 
-	// Check if any required labels are missing (don't check values)
+	// Check if this is an operator-managed pod (already has rht.comp)
+	isOperatorManaged := false
+	if managedBy, exists := pod.Labels["app.kubernetes.io/managed-by"]; exists && managedBy == "eap-operator" {
+		isOperatorManaged = true
+	}
+
+	if isOperatorManaged {
+		// For operator-managed pods, check rht.comp and our additional labels
+		// The EAP Operator sets rht.comp, but if it's deleted we should restore it
+		labelsToCheck := []string{
+			"rht.comp",            // Product name (may be deleted by user)
+			"rht.pod_image_ver",   // Version of the pod's container image
+			"rht.comp_discovered", // Discovery timestamp
+			"rht.pod_image",       // Pod's container image name
+		}
+
+		for _, label := range labelsToCheck {
+			if _, exists := pod.Labels[label]; !exists {
+				return true // Missing label
+			}
+		}
+
+		return false // All labels are present
+	}
+
+	// For non-operator-managed pods, check all required labels
 	requiredLabels := []string{
 		"rht.comp",
-		"rht.comp_ver",
+		"rht.pod_image_ver",
 		"rht.comp_discovered",
-		"rht.comp_image",
+		"rht.pod_image",
 	}
 
 	for _, label := range requiredLabels {

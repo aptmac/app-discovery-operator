@@ -26,6 +26,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	"github.com/aptmac/app-discovery-operator/internal/controller"
 	"github.com/aptmac/app-discovery-operator/internal/identifier"
+	imagev1 "github.com/openshift/api/image/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,6 +49,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(imagev1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }
@@ -202,6 +204,11 @@ func main() {
 
 	// Create identifier
 	productIdentifier := identifier.NewIdentifier()
+
+	// Try to set up OpenShift Image API support (will be nil in vanilla Kubernetes)
+	imageInspector := identifier.NewImageInspector(mgr.GetClient())
+	productIdentifier.SetImageInspector(imageInspector)
+	setupLog.Info("Image inspector configured for S2I detection")
 
 	// Setup App Discovery controller
 	if err = (&controller.AppDiscoveryReconciler{

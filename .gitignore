@@ -22,3 +22,6 @@ dist/
 *.swp
 *.swo
 *~
+
+# Local, test specific folder
+test-eap-builder

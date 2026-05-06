@@ -256,12 +256,12 @@ func TestReconcile_RedHatPodLabeling(t *testing.T) {
 	}
 
 	// Check product and version labels
-	if updatedPod.Labels["rht.comp"] != "jboss-eap" {
-		t.Errorf("Expected rht.app to be 'jboss-eap', got '%s'", updatedPod.Labels["rht.comp"])
+	if updatedPod.Labels["rht.comp"] != "EAP" {
+		t.Errorf("Expected rht.comp to be 'EAP', got '%s'", updatedPod.Labels["rht.comp"])
 	}
 
-	if updatedPod.Labels["rht.comp_ver"] != "7.4.0" {
-		t.Errorf("Expected rht.comp_ver to be '7.4.0', got '%s'", updatedPod.Labels["rht.comp_ver"])
+	if updatedPod.Labels["rht.pod_image_ver"] != "7.4.0" {
+		t.Errorf("Expected rht.pod_image_ver to be '7.4.0', got '%s'", updatedPod.Labels["rht.pod_image_ver"])
 	}
 
 	// Check discovered label exists (it's a timestamp, so just verify it exists)
@@ -270,8 +270,8 @@ func TestReconcile_RedHatPodLabeling(t *testing.T) {
 	}
 
 	// Verify image label exists and is sanitized
-	if _, exists := updatedPod.Labels["rht.comp_image"]; !exists {
-		t.Error("Expected rht.comp_image label to exist")
+	if _, exists := updatedPod.Labels["rht.pod_image"]; !exists {
+		t.Error("Expected rht.pod_image label to exist")
 	}
 }
 
@@ -284,10 +284,10 @@ func TestReconcile_AlreadyLabeledPod(t *testing.T) {
 			Name:      "eap-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"rht.comp":            "jboss-eap",
-				"rht.comp_ver":        "7.4.0",
+				"rht.comp":            "EAP",
+				"rht.pod_image_ver":   "7.4.0",
 				"rht.comp_discovered": "1776437286", // Timestamp
-				"rht.comp_image":      "registry.redhat.io-jboss-eap-7-eap74-openjdk11-openshift-rhel8-7.4.0",
+				"rht.pod_image":       "registry.redhat.io-jboss-eap-7-eap74-openjdk11-openshift-rhel8-7.4.0",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -344,7 +344,7 @@ func TestReconcile_AlreadyLabeledPod(t *testing.T) {
 
 	// In a real cluster, ResourceVersion would change if the pod was updated
 	// With fake client, we just verify labels are still correct
-	if afterPod.Labels["rht.comp"] != "jboss-eap" {
+	if afterPod.Labels["rht.comp"] != "EAP" {
 		t.Error("Labels should remain unchanged for already labeled pod")
 	}
 }
@@ -358,7 +358,7 @@ func TestReconcile_MissingLabels(t *testing.T) {
 			Name:      "eap-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"rht.comp": "jboss-eap",
+				"rht.comp": "EAP",
 				// Missing version and discovered labels
 			},
 		},
@@ -407,7 +407,7 @@ func TestReconcile_MissingLabels(t *testing.T) {
 		t.Fatalf("Failed to get updated pod: %v", err)
 	}
 
-	if updatedPod.Labels["rht.comp_ver"] != "7.4.0" {
+	if updatedPod.Labels["rht.pod_image_ver"] != "7.4.0" {
 		t.Error("Expected version label to be added")
 	}
 
@@ -536,16 +536,16 @@ func TestReconcile_UserProvidedLabelsNotOverwritten(t *testing.T) {
 	}
 
 	// Missing labels should be added
-	if _, exists := updatedPod.Labels["rht.comp_ver"]; !exists {
-		t.Error("Expected rht.comp_ver label to be added")
+	if _, exists := updatedPod.Labels["rht.pod_image_ver"]; !exists {
+		t.Error("Expected rht.pod_image_ver label to be added")
 	}
 
 	if _, exists := updatedPod.Labels["rht.comp_discovered"]; !exists {
 		t.Error("Expected rht.comp_discovered label to be added")
 	}
 
-	if _, exists := updatedPod.Labels["rht.comp_image"]; !exists {
-		t.Error("Expected rht.comp_image label to be added")
+	if _, exists := updatedPod.Labels["rht.pod_image"]; !exists {
+		t.Error("Expected rht.pod_image label to be added")
 	}
 }
 
