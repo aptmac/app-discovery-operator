@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/almacdon/app-discovery-operator
-  newTag: 1.0.0-dev
+  newTag: latest
