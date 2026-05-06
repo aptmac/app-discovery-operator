@@ -3,7 +3,19 @@ OpenShift Operator for automatic detection and labeling of Red Hat application p
 
 ## Description
 
-This is currently in a Proof of Concept state. The only pods that will be identified and labelled are EAP at the moment, there's a map in `identifier.go` that can be expanded upon to include other images.
+This is currently in a Proof of Concept state. The operator identifies and labels JBoss EAP pods from multiple deployment methods:
+
+- **Direct deployments**: Pods using Red Hat EAP images (e.g., `registry.redhat.io/jboss-eap-7/...`)
+- **S2I builds**: Source-to-Image built applications with EAP base images
+- **EAP Operator-managed pods**: Pods deployed via the EAP Operator (identified by `app.kubernetes.io/managed-by: eap-operator` label)
+
+The operator adds the following labels to identified pods:
+- `rht.comp`: Red Hat component/product name ("EAP")
+- `rht.pod_image`: The pod's container image name
+- `rht.pod_image_ver`: Version extracted from the pod's container image tag
+- `rht.comp_discovered`: Unix timestamp of when the pod was first discovered
+
+The product detection map in `identifier.go` can be expanded to include other Red Hat middleware products.
 
 ## Getting Started
 
@@ -17,6 +29,8 @@ This is currently in a Proof of Concept state. The only pods that will be identi
 Your operator will need to be run with the following permissions:
 
 Get, List, Watch, Patch, Update on pods.
+
+Get, List, Watch on images.
 
 ### Running on the cluster
 

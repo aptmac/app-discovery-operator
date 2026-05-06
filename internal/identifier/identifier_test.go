@@ -1,6 +1,7 @@
 package identifier
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,14 +26,14 @@ func TestIdentifyPod_JBossEAP(t *testing.T) {
 		},
 	}
 
-	match := identifier.IdentifyPod(pod)
+	match := identifier.IdentifyPod(context.Background(), pod)
 
 	if match == nil {
 		t.Fatal("Expected to identify JBoss EAP, got nil")
 	}
 
-	if match.ProductName != "jboss-eap" {
-		t.Errorf("Expected product name 'jboss-eap', got '%s'", match.ProductName)
+	if match.ProductName != "EAP" {
+		t.Errorf("Expected product name 'EAP', got '%s'", match.ProductName)
 	}
 
 	if match.Version != "7.4.0" {
@@ -58,7 +59,7 @@ func TestIdentifyPod_NonRedHatImage(t *testing.T) {
 		},
 	}
 
-	match := identifier.IdentifyPod(pod)
+	match := identifier.IdentifyPod(context.Background(), pod)
 
 	if match != nil {
 		t.Errorf("Expected nil for non-Red Hat image, got product '%s'", match.ProductName)
@@ -87,14 +88,14 @@ func TestIdentifyPod_MultipleContainers(t *testing.T) {
 		},
 	}
 
-	match := identifier.IdentifyPod(pod)
+	match := identifier.IdentifyPod(context.Background(), pod)
 
 	if match == nil {
 		t.Fatal("Expected to identify JBoss EAP, got nil")
 	}
 
-	if match.ProductName != "jboss-eap" {
-		t.Errorf("Expected product name 'jboss-eap', got '%s'", match.ProductName)
+	if match.ProductName != "EAP" {
+		t.Errorf("Expected product name 'EAP', got '%s'", match.ProductName)
 	}
 }
 
@@ -122,14 +123,14 @@ func TestIdentifyPod_InitContainer(t *testing.T) {
 		},
 	}
 
-	match := identifier.IdentifyPod(pod)
+	match := identifier.IdentifyPod(context.Background(), pod)
 
 	if match == nil {
 		t.Fatal("Expected to identify JBoss EAP, got nil")
 	}
 
-	if match.ProductName != "jboss-eap" {
-		t.Errorf("Expected product name 'jboss-eap', got '%s'", match.ProductName)
+	if match.ProductName != "EAP" {
+		t.Errorf("Expected product name 'EAP', got '%s'", match.ProductName)
 	}
 }
 
@@ -185,7 +186,7 @@ func TestShouldLabel_NoExistingLabels(t *testing.T) {
 	}
 
 	match := &ProductMatch{
-		ProductName: "jboss-eap",
+		ProductName: "EAP",
 		Version:     "7.4",
 	}
 
@@ -202,16 +203,16 @@ func TestShouldLabel_AllCorrectLabelsExist(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"rht.comp":            "jboss-eap",
-				"rht.comp_ver":        "7.4",
+				"rht.comp":            "EAP",
+				"rht.pod_image_ver":   "7.4",
 				"rht.comp_discovered": "1776437286", // Timestamp (first seen, not modified)
-				"rht.comp_image":      "registry.redhat.io-jboss-eap-7-eap74-7.4",
+				"rht.pod_image":       "registry.redhat.io-jboss-eap-7-eap74-7.4",
 			},
 		},
 	}
 
 	match := &ProductMatch{
-		ProductName: "jboss-eap",
+		ProductName: "EAP",
 		Version:     "7.4",
 	}
 
@@ -229,15 +230,15 @@ func TestShouldLabel_MissingVersionLabel(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"rht.comp":            "jboss-eap",
+				"rht.comp":            "EAP",
 				"rht.comp_discovered": "true",
-				// Missing rht.comp_ver
+				// Missing rht.pod_image_ver
 			},
 		},
 	}
 
 	match := &ProductMatch{
-		ProductName: "jboss-eap",
+		ProductName: "EAP",
 		Version:     "7.4",
 	}
 
@@ -254,15 +255,15 @@ func TestShouldLabel_MissingDiscoveredLabel(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"rht.comp":     "jboss-eap",
-				"rht.comp_ver": "7.4",
+				"rht.comp":          "EAP",
+				"rht.pod_image_ver": "7.4",
 				// Missing rht.comp_discovered
 			},
 		},
 	}
 
 	match := &ProductMatch{
-		ProductName: "jboss-eap",
+		ProductName: "EAP",
 		Version:     "7.4",
 	}
 
@@ -285,7 +286,7 @@ func TestShouldLabel_IncorrectLabelExists(t *testing.T) {
 	}
 
 	match := &ProductMatch{
-		ProductName: "jboss-eap",
+		ProductName: "EAP",
 		Version:     "7.4",
 	}
 

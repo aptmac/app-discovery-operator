@@ -50,7 +50,7 @@ func (r *AppDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Identify if this is a Red Hat product
-	match := r.Identifier.IdentifyPod(pod)
+	match := r.Identifier.IdentifyPod(ctx, pod)
 	if match == nil {
 		// Not a Red Hat product, nothing to do
 		log.V(1).Info("Pod is not a Red Hat product", "pod", pod.Name)
@@ -97,8 +97,8 @@ func (r *AppDiscoveryReconciler) labelPod(ctx context.Context, pod *corev1.Pod, 
 		pod.Labels["rht.comp"] = match.ProductName
 	}
 
-	if _, exists := pod.Labels["rht.comp_ver"]; !exists {
-		pod.Labels["rht.comp_ver"] = match.Version
+	if _, exists := pod.Labels["rht.pod_image_ver"]; !exists {
+		pod.Labels["rht.pod_image_ver"] = match.Version
 	}
 
 	// Only set discovered timestamp if it doesn't exist (first seen time, not last modified)
@@ -106,9 +106,9 @@ func (r *AppDiscoveryReconciler) labelPod(ctx context.Context, pod *corev1.Pod, 
 		pod.Labels["rht.comp_discovered"] = fmt.Sprintf("%d", match.Discovered.Unix())
 	}
 
-	if _, exists := pod.Labels["rht.comp_image"]; !exists {
+	if _, exists := pod.Labels["rht.pod_image"]; !exists {
 		// Store the full image name (sanitized for label format)
-		pod.Labels["rht.comp_image"] = sanitizeLabelValue(match.Image)
+		pod.Labels["rht.pod_image"] = sanitizeLabelValue(match.Image)
 	}
 
 	// Update the pod

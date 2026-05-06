@@ -9,3 +9,6 @@ rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "watch", "patch", "update"]
+- apiGroups: ["image.openshift.io"]
+  resources: ["images"]
+  verbs: ["get", "list", "watch"]
