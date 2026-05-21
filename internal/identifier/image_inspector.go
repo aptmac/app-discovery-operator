@@ -98,12 +98,21 @@ func (ii *ImageInspector) checkImageEnvVars(image *imagev1.Image) *ProductMatch 
 	// Parse environment variables from image config into a map
 	envMap := parseEnvArray(metadata.Config.Env)
 
-	// Check if this is an EAP image
-	if envMap["JBOSS_PRODUCT"] != "eap" || envMap["JBOSS_HOME"] != "/opt/eap" {
+	// Check if this is an EAP image by looking for EAP-specific environment variables
+	// EAP 7.x: JBOSS_HOME=/opt/eap
+	// EAP 8.x: JBOSS_HOME=/opt/server (Red Hat changed default path)
+	hasEAPImageName := strings.Contains(envMap["JBOSS_IMAGE_NAME"], "jboss-eap")
+	hasJBossHome := envMap["JBOSS_HOME"] == "/opt/eap" || envMap["JBOSS_HOME"] == "/opt/server"
+
+	if !hasEAPImageName || !hasJBossHome {
 		return nil
 	}
 
+	// Extract version - try both variables as different EAP versions use different variable names
 	version := envMap["JBOSS_EAP_VERSION"]
+	if version == "" {
+		version = envMap["JBOSS_IMAGE_VERSION"]
+	}
 	if version == "" {
 		version = "unknown"
 	}
@@ -115,7 +124,7 @@ func (ii *ImageInspector) checkImageEnvVars(image *imagev1.Image) *ProductMatch 
 	}
 
 	return &ProductMatch{
-		ProductName: "jboss-eap",
+		ProductName: "eap",
 		Version:     version,
 		Image:       imageName,
 		Discovered:  image.CreationTimestamp.Time,
