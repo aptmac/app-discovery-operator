@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: eap-payg-resources
+  annotations:
+    description: "EAP ImageStreams and Templates"
+
+resources:
+  - imagestreams/eap-imagestreams.yaml
+  - templates/eap8-s2i-template.yaml
+
+namespace: openshift
+
+commonLabels:
+  app.kubernetes.io/part-of: eap-payg
+  app.kubernetes.io/managed-by: kustomize
+
+commonAnnotations:
+  payg.redhat.com/enabled: "true"
+  payg.redhat.com/product: "jboss-eap"

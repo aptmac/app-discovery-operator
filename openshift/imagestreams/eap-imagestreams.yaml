@@ -1,0 +1,48 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: jboss-eap81-openjdk17-builder
+  namespace: openshift
+  annotations:
+    openshift.io/display-name: "Red Hat JBoss EAP 8.1 (OpenJDK 17)"
+    openshift.io/provider-display-name: "Red Hat, Inc."
+spec:
+  tags:
+  - name: "latest"
+    annotations:
+      description: "Build and run JBoss EAP 8.1 applications on OpenJDK 17"
+      iconClass: icon-eap
+      tags: "builder,eap,jakartaee,java,jboss"
+      supports: "eap:8.1,jakartaee:10,java:17"
+      version: "8.1"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/jboss-eap-8/eap81-openjdk17-builder-openshift-rhel9:1.0.0.GA-31.1779229787
+    referencePolicy:
+      type: Local
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: jboss-eap81-openjdk21-builder
+  namespace: openshift
+  annotations:
+    openshift.io/display-name: "Red Hat JBoss EAP 8.1 (OpenJDK 21)"
+    openshift.io/provider-display-name: "Red Hat, Inc."
+spec:
+  tags:
+  - name: "latest"
+    annotations:
+      description: "Build and run JBoss EAP 8.1 applications on OpenJDK 21"
+      iconClass: icon-eap
+      tags: "builder,eap,jakartaee,java,jboss"
+      supports: "eap:8.1,jakartaee:10,java:21"
+      version: "8.1"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/jboss-eap-8/eap81-openjdk21-builder-openshift-rhel9:1.0.0.GA-31.1779229787
+    referencePolicy:
+      type: Local
+
+# Made with Bob

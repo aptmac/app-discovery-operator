@@ -1,0 +1,194 @@
+---
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: eap81-basic-s2i
+  namespace: openshift
+  annotations:
+    openshift.io/display-name: "JBoss EAP 8.1 (S2I)"
+    openshift.io/provider-display-name: "Red Hat, Inc."
+    description: "Application template for JBoss EAP 8.1 applications built using S2I."
+    tags: "eap,jakartaee,java,jboss"
+    iconClass: "icon-eap"
+    version: "8.1"
+labels:
+  template: eap81-basic-s2i
+  xpaas: "8.1"
+message: |-
+  A new JBoss EAP 8.1 application has been created in your project.
+  The app-discovery-operator will automatically detect and label this application for PAYG billing.
+parameters:
+- name: APPLICATION_NAME
+  displayName: Application Name
+  description: The name for the application.
+  value: eap8-app
+  required: true
+- name: SOURCE_REPOSITORY_URL
+  displayName: Git Repository URL
+  description: Git source URI for application
+  value: https://github.com/jboss-developer/jboss-eap-quickstarts.git
+  required: true
+- name: SOURCE_REPOSITORY_REF
+  displayName: Git Reference
+  description: Git branch/tag reference
+  value: "8.0.x"
+- name: CONTEXT_DIR
+  displayName: Context Directory
+  description: Path within Git project to build; empty for root project directory.
+  value: helloworld
+- name: BUILDER_IMAGE
+  displayName: Builder Image
+  description: The S2I builder image to use
+  value: jboss-eap81-openjdk21-builder:latest
+  required: true
+- name: NAMESPACE
+  displayName: Namespace
+  description: The OpenShift Namespace where the ImageStream resides.
+  value: openshift
+  required: true
+objects:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+      app.kubernetes.io/part-of: ${APPLICATION_NAME}
+  spec:
+    ports:
+    - name: 8080-tcp
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      deploymentconfig: ${APPLICATION_NAME}
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+      app.kubernetes.io/part-of: ${APPLICATION_NAME}
+  spec:
+    to:
+      kind: Service
+      name: ${APPLICATION_NAME}
+    port:
+      targetPort: 8080-tcp
+- apiVersion: image.openshift.io/v1
+  kind: ImageStream
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+      app.kubernetes.io/part-of: ${APPLICATION_NAME}
+- apiVersion: build.openshift.io/v1
+  kind: BuildConfig
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+      app.kubernetes.io/part-of: ${APPLICATION_NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    source:
+      type: Git
+      git:
+        uri: ${SOURCE_REPOSITORY_URL}
+        ref: ${SOURCE_REPOSITORY_REF}
+      contextDir: ${CONTEXT_DIR}
+    strategy:
+      type: Source
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          namespace: ${NAMESPACE}
+          name: ${BUILDER_IMAGE}
+        env:
+        - name: MAVEN_ARGS_APPEND
+          value: "-Dcom.redhat.xpaas.repo.jbossorg"
+    triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChange: {}
+- apiVersion: apps.openshift.io/v1
+  kind: DeploymentConfig
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+      app.kubernetes.io/part-of: ${APPLICATION_NAME}
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 3
+    selector:
+      deploymentconfig: ${APPLICATION_NAME}
+    strategy:
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          app: ${APPLICATION_NAME}
+          deploymentconfig: ${APPLICATION_NAME}
+        annotations:
+          # Note: app-discovery-operator will automatically add these labels:
+          # rht.comp: "jboss-eap"
+          # rht.pod_image_ver: "8.1.x"
+          # rht.comp_discovered: "<timestamp>"
+          # rht.pod_image: "<image-name>"
+      spec:
+        containers:
+        - name: ${APPLICATION_NAME}
+          image: ' '
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+            name: http
+          - containerPort: 8778
+            protocol: TCP
+            name: jolokia
+          - containerPort: 9990
+            protocol: TCP
+            name: management
+          env:
+          - name: JBOSS_HOME
+            value: /opt/eap
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              memory: 512Mi
+    triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}:latest
+
+# Made with Bob
